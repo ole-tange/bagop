@@ -28,6 +28,8 @@ is the username on the remote host (default: your username).
 
 The syntax is the same as for B<rsync>.
 
+The default is ~/backup/bagop.
+
 
 =item B<-d>
 
