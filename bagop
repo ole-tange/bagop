@@ -11,28 +11,51 @@ use Storable;
 use Sys::Hostname;
 use Text::Abbrev;
 
-my ($prg_name, $host_name, $usage, $opt_hash, $opt_list, $abr_hash, $cmd);
+my ($prg_name, $host_name, $usage);
 
 $prg_name  = File::Basename::basename($0);
 $host_name = (split /\./, Sys::Hostname::hostname)[0];
 
 # >>>>>>>>>>>>>>>>>>>>>>>>>>> OPTIONS <<<<<<<<<<<<<<<<<<<<<<<<<<<
 
-# Default options
-$opt_hash = {};
-$opt_hash->{"dst_host"} = "offrig";
-$opt_hash->{"dst_user"} = "$ENV{'USER'}";
-$opt_hash->{"dst_dir"}  = "/home/maasha/Backup/$host_name";
-$opt_hash->{"db_file"}  = "$ENV{'HOME'}/.bagop.db";
 
 # TODO the above should probably be set as bagop specific
 # environment variables.
 
 # No need to change anything below!
 
-# >>>>>>>>>>>>>>>>>>>>>>>>>>> USAGE <<<<<<<<<<<<<<<<<<<<<<<<<<<
+Getopt::Long::GetOptions("dest|dst=s" => \$opt::dest,
+			 "dryrun|dry-run|d" => \$opt::dryrun,
+			 "quiet|q" => \$opt::quiet,
+    );
 
-$usage = qq(
+$opt::dest ||= "$ENV{'HOME'}/backup/bagop";
+
+if($opt::dest =~ /:$/) {
+    # --dest host: => host:.
+    $opt::dest .=".";
+}
+
+my $abr_hash = Text::Abbrev::abbrev qw(add delete commit status);
+my $cmd = shift @ARGV or ::die_usage();
+$cmd = $abr_hash->{$cmd} or ::die_usage();
+
+if ($cmd eq "add") {
+    bagop_add(\@ARGV);
+} elsif ($cmd eq "delete") {
+    bagop_delete(\@ARGV);
+} elsif ($cmd eq "commit") {
+    bagop_commit()
+} elsif ($cmd eq "status") {
+    bagop_status();
+} else {
+    print STDERR "This should not happen" and exit;
+} 
+
+# >>>>>>>>>>>>>>>>>>>>>>>>>>> SUBROUTINES <<<<<<<<<<<<<<<<<<<<<<<<<<<
+
+sub die_usage {
+    my $usage = qq(
 Program: $prg_name
 
 Synopsis: Backup file organizer.
@@ -112,11 +135,8 @@ Commands:
    (commands can be abbreviated to shortest disambiguous prefix)
 
 Options:
-       --dst_host  Destination host      ($opt_hash->{'dst_host'})
-       --dst_user  Destination user      ($opt_hash->{'dst_user'})
-       --dst_dir   Destination directory ($opt_hash->{'dst_dir'})
-       --db_file   Dabase file           ($opt_hash->{'db_file'})
-   -d, --dry_run   Moch syncronize.
+       --dest      Destination      ($opt::dest)
+   -d, --dry_run   Mock syncronize.
    -q, --quiet     Run quietly.
 
 Examples:
@@ -142,45 +162,21 @@ License:
     http://www.gnu.org/copyleft/gpl.html
 
 );
+    print STDERR $usage;
+    exit(1);
+}
 
-$opt_list = [];
 
-push @{$opt_list}, "dst_dir=s";
-push @{$opt_list}, "dst_user=s";
-push @{$opt_list}, "dst_host=s";
-push @{$opt_list}, "dry_run|d";
-push @{$opt_list}, "quiet|q";
-
-Getopt::Long::GetOptions($opt_hash, @{$opt_list});
-
-$abr_hash = Text::Abbrev::abbrev qw(add delete commit status);
-$cmd      = shift @ARGV       || "";
-$cmd      = $abr_hash->{$cmd} || "";
-
-if ($cmd eq "add") {
-    bagop_add(\@ARGV, $opt_hash);
-} elsif ($cmd eq "delete") {
-    bagop_delete(\@ARGV, $opt_hash);
-} elsif ($cmd eq "commit") {
-    bagop_commit($opt_hash)
-} elsif ($cmd eq "status") {
-    bagop_status($opt_hash);
-} else {
-    print STDERR $usage and exit;
-} 
-
-# >>>>>>>>>>>>>>>>>>>>>>>>>>> SUBROUTINES <<<<<<<<<<<<<<<<<<<<<<<<<<<
 
 # Add files to backup.
 sub bagop_add
 {
     my ($paths,      # List of paths to add.
-        $opt_hash,   # Options hash.
     ) = @_;
 
     my ($db, $path, $abs_path);
 
-    $db = db_retrieve($opt_hash);
+    $db = db_retrieve();
 
     foreach $path (@{$paths})
     {
@@ -201,74 +197,60 @@ sub bagop_add
         elsif (-f $abs_path)
         {
             $db->{$abs_path} = {lstat => [lstat($abs_path)], status => 'NEW'};
-            print STDERR qq(Added $abs_path\n) unless $opt_hash->{'quiet'};
+            print STDERR qq(Added $abs_path\n) unless $opt::quiet;
         }
         else
         {
             die qq(Error! No such file or direcotry -> "$abs_path"\n);
         }
     }
-
-    db_store($db, $opt_hash);
+    db_store($db);
 }
 
 # Delete a file from backup.
 sub bagop_delete
 {
     my ($paths,      # List of paths to delete.
-        $opt_hash,   # Options hash.
     ) = @_;
 
     my ($db, $path, $abs_path);
 
-    $db = db_retrieve($opt_hash);
+    $db = db_retrieve();
 
     foreach $path (@{$paths})
     {
         $abs_path = File::Spec->rel2abs($path);
 
-        if (exists $db->{$abs_path})
-        {
+        if (exists $db->{$abs_path}) {
             delete $db->{$abs_path};
-            print STDERR qq(Deleted $abs_path\n) unless $opt_hash->{'quiet'};
+            print STDERR qq(Deleted $abs_path\n) unless $opt::quiet;
         }
-        else
-        {
-            print STDERR qq(Warning! No such file -> "$abs_path");
+        else {
+            print STDERR qq(Warning! No such file -> "$abs_path"\n);
         }
     }
 
-    db_store($db, $opt_hash);
+    db_store($db);
 }
 
 # Backup files.
 sub bagop_commit
 {
-    my ($opt_hash,   # Options hash.
-    ) = @_;
+    my ($fh, $file);
 
-    my ($db, $tmp_fh, $tmp_file, @files, $fh, $file, @cmd);
-
-    $db = db_retrieve($opt_hash);
-
-    ($tmp_fh, $tmp_file) = File::Temp::tempfile(UNLINK => 1);
-
-    @files = sort keys %{$db};
+    my $db = db_retrieve();
+    my ($tmp_fh, $tmp_file) = File::Temp::tempfile(UNLINK => 1);
+    my @files = sort keys %{$db};
 
     map { print $tmp_fh "$_\n" if -f $_ } @files;
 
-    @cmd = "rsync";
-    push @cmd, "--verbose" unless $opt_hash->{'quiet'};
-    push @cmd, "--dry-run" if $opt_hash->{'dry_run'};
-    push @cmd, "--relative";
-    push @cmd, "--update";
-    push @cmd, "--files-from=$tmp_file";
-    push @cmd, "/";
-    push @cmd, "$opt_hash->{'dst_user'}\@$opt_hash->{'dst_host'}:$opt_hash->{'dst_dir'}";
+    my $verbose = $opt::quiet ? "": "--verbose";
+    my $dryrun = $opt::dryrun ? "--dry-run" : "";
+    my @cmd = "rsync $verbose $dryrun --relative --update --files-from=$tmp_file / $opt::dest";
 
     system(@cmd) == 0 or die qq(Error! Command -> @cmd failed: $?);
 
-    unless ($opt_hash->{'dry_run'})
+    unless ($opt::dryrun)
     {
         foreach $file (@files)
         {
@@ -276,16 +258,13 @@ sub bagop_commit
             $db->{$file}->{'status'} = 'OK';
         }
     }
-
-    db_store($db, $opt_hash);
+    db_store($db);
+    db_commit();
 }
 
 # Collect and print backup stats.
 sub bagop_status
 {
-    my ($opt_hash,   # Options hash.
-    ) = @_;
-
     my ($db, @files, $file, @stats_old, @stats_new, $size_old, $size_new, $mtime_old, $mtime_new,
         $status, $time, $tot_size, $tot_new, $tot_ok, $tot_old, $tot_mis);
 
@@ -295,7 +274,7 @@ sub bagop_status
     $tot_old  = 0;
     $tot_mis  = 0;
 
-    $db = db_retrieve($opt_hash);
+    $db = db_retrieve();
 
     @files = sort keys %{$db};
 
@@ -359,26 +338,40 @@ sub bagop_status
 sub db_store
 {
     my ($db,         # Data
-        $opt_hash,   # Options hash
     ) = @_;
 
-    Storable::lock_store($db, $opt_hash->{'db_file'});
+    Storable::lock_store($db, db_filename());
+}
+
+sub db_commit {
+    my $basefile = $opt::dest;
+    $basefile =~ s/[^a-z0-9]/_/gi;
+    my $cachedir = $ENV{'HOME'}."/.bagop/cache";
+    my $dbfile = "$cachedir/$basefile";
+    system("rsync $dbfile $opt::dest/.$basefile 2>/dev/null;");
+}
+
+sub db_filename {
+    my $basefile = $opt::dest;
+    $basefile =~ s/[^a-z0-9]/_/gi;
+    my $cachedir = $ENV{'HOME'}."/.bagop/cache";
+    my $dbfile = "$cachedir/$basefile";
+    if(not -f $dbfile) {
+	system("mkdir -p $cachedir; rsync $opt::dest/.$basefile $dbfile 2>/dev/null;");
+    }
+    return $dbfile;
 }
 
 # Retrieve the backup db from file.
-sub db_retrieve
-{
-    my ($opt_hash,   # Options hash
-       ) = @_;
-
+sub db_retrieve {
     my ($db);
-
-    $db = {};
-    $db = Storable::lock_retrieve($opt_hash->{'db_file'}) if -f $opt_hash->{'db_file'};
-
+    my $dbfile = db_filename();
+    if(-f $dbfile) {
+	$db = Storable::lock_retrieve($dbfile);
+    } else {
+	$db = {};
+    }
     return wantarray ? %{$db} : $db;
 }
 
 # >>>>>>>>>>>>>>>>>>>>>>>>>>><<<<<<<<<<<<<<<<<<<<<<<<<<<
-
-__END__
