@@ -18,27 +18,23 @@ $host_name = (split /\./, Sys::Hostname::hostname)[0];
 
 # >>>>>>>>>>>>>>>>>>>>>>>>>>> OPTIONS <<<<<<<<<<<<<<<<<<<<<<<<<<<
 
-
-# TODO the above should probably be set as bagop specific
-# environment variables.
-
-# No need to change anything below!
-
-Getopt::Long::GetOptions("dest|dst=s" => \$opt::dest,
-			 "dryrun|dry-run|d" => \$opt::dryrun,
-			 "quiet|q" => \$opt::quiet,
-    );
+Getopt::Long::GetOptions(
+    "dest|dst=s"       => \$opt::dest,
+    "dryrun|dry-run|d" => \$opt::dryrun,
+    "quiet|q"          => \$opt::quiet,
+);
 
 $opt::dest ||= "$ENV{'HOME'}/backup/bagop";
 
-if($opt::dest =~ /:$/) {
+if($opt::dest =~ /:$/)
+{
     # --dest host: => host:.
-    $opt::dest .=".";
+    $opt::dest .= ".";
 }
 
 my $abr_hash = Text::Abbrev::abbrev qw(add delete commit status);
-my $cmd = shift @ARGV or ::die_usage();
-$cmd = $abr_hash->{$cmd} or ::die_usage();
+my $cmd      = shift @ARGV or ::die_usage();
+$cmd         = $abr_hash->{$cmd} or ::die_usage();
 
 if ($cmd eq "add") {
     bagop_add(\@ARGV);
@@ -49,7 +45,7 @@ if ($cmd eq "add") {
 } elsif ($cmd eq "status") {
     bagop_status();
 } else {
-    print STDERR "This should not happen" and exit;
+    print STDERR "This should not happen" and die;
 } 
 
 # >>>>>>>>>>>>>>>>>>>>>>>>>>> SUBROUTINES <<<<<<<<<<<<<<<<<<<<<<<<<<<
@@ -63,8 +59,6 @@ type 'man $prg_name' for help.
     print STDERR $usage;
     exit(1);
 }
-
-
 
 # Add files to backup.
 sub bagop_add
@@ -121,17 +115,17 @@ sub bagop_delete
 # Backup files.
 sub bagop_commit
 {
-    my ($fh, $file);
+    my ($fh, $file, $db, $tmp_fh, $tmp_file, @files, $verbose, $dryrun, @cmd);
 
-    my $db = db_retrieve();
-    my ($tmp_fh, $tmp_file) = File::Temp::tempfile(UNLINK => 1);
-    my @files = sort keys %{$db};
+    $db = db_retrieve();
+    ($tmp_fh, $tmp_file) = File::Temp::tempfile(UNLINK => 1);
+    @files = sort keys %{$db};
 
     map { print $tmp_fh "$_\n" if (-f $_ or -d $_) } @files;
 
-    my $verbose = $opt::quiet ? "": "--verbose";
-    my $dryrun = $opt::dryrun ? "--dry-run" : "";
-    my @cmd = "rsync $verbose $dryrun --recursive --relative --update --files-from=$tmp_file / $opt::dest";
+    $verbose = $opt::quiet ? "": "--verbose";
+    $dryrun = $opt::dryrun ? "--dry-run" : "";
+    @cmd = "rsync $verbose $dryrun --recursive --relative --update --files-from=$tmp_file / $opt::dest";
 
     system(@cmd) == 0 or ::error(qq(Command -> @cmd failed: $?));
 
@@ -143,6 +137,7 @@ sub bagop_commit
             $db->{$file}->{'status'} = 'OK';
         }
     }
+
     db_store($db);
     db_commit();
 }
@@ -228,48 +223,70 @@ sub db_store
     Storable::lock_store($db, db_filename());
 }
 
-sub db_commit {
-    my $basefile = $opt::dest;
+# Commit the back using rsync.
+sub db_commit
+{
+    my ($basefile, $cachedir, $dbfile);
+
+    $basefile = $opt::dest;
     $basefile =~ s/[^a-z0-9]/_/gi;
-    my $cachedir = $ENV{'HOME'}."/.bagop/cache";
-    my $dbfile = "$cachedir/$basefile";
+    $cachedir = $ENV{'HOME'}."/.bagop/cache";
+    $dbfile   = "$cachedir/$basefile";
+
     system("rsync $dbfile $opt::dest/.$basefile 2>/dev/null;");
 }
 
-sub db_filename {
-    my $basefile = $opt::dest;
+# Get database file name.
+sub db_filename
+{
+    my ($basefile, $cachedir, $dbfile);
+
+    $basefile = $opt::dest;
     $basefile =~ s/[^a-z0-9]/_/gi;
-    my $cachedir = $ENV{'HOME'}."/.bagop/cache";
-    my $dbfile = "$cachedir/$basefile";
-    if(not -f $dbfile) {
-	system("mkdir -p $cachedir; rsync $opt::dest/.$basefile $dbfile 2>/dev/null;");
+    $cachedir = $ENV{'HOME'}."/.bagop/cache";
+    $dbfile = "$cachedir/$basefile";
+
+    unless (-f $dbfile) {
+        system("mkdir -p $cachedir; rsync $opt::dest/.$basefile $dbfile 2>/dev/null;");
     }
+
     return $dbfile;
 }
 
 # Retrieve the backup db from file.
-sub db_retrieve {
-    my ($db);
-    my $dbfile = db_filename();
-    if(-f $dbfile) {
-	$db = Storable::lock_retrieve($dbfile);
-    } else {
-	$db = {};
-    }
+sub db_retrieve
+{
+    my ($dbfile, $db);
+
+    $dbfile = db_filename();
+    $db     = (-f $dbfile) ? Storable::lock_retrieve($dbfile) : {};
+
     return wantarray ? %{$db} : $db;
 }
 
-sub warning {
-    my @w = @_;
-    my $fh = $Global::original_stderr || *STDERR;
-    my $prog = $Global::progname || "bagop";
-    print $fh $prog, ": Warning: ", @w;
+# Output warnings.
+sub warning
+{
+    my ($warnings,   # list of warnings.
+    ) = @_;
+
+    my ($fh, $prog);
+
+    $fh   = $Global::original_stderr || *STDERR;
+    $prog = $Global::progname || $prg_name;
+
+    print $fh $prog, ": Warning: ", @{$warnings};
 }
 
-
+# Output errors.
 sub error {
-    my @w = @_;
-    my $fh = $Global::original_stderr || *STDERR;
-    my $prog = $Global::progname || "bagop";
-    print $fh $prog, ": Error: ", @w;
+    my ($errors,   # list of errors.
+    ) = @_;
+
+    my ($fh, $prog);
+
+    $fh   = $Global::original_stderr || *STDERR;
+    $prog = $Global::progname || $prg_name;
+
+    print $fh $prog, ": Error: ", @{$errors};
 }
