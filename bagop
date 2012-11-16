@@ -55,113 +55,11 @@ if ($cmd eq "add") {
 # >>>>>>>>>>>>>>>>>>>>>>>>>>> SUBROUTINES <<<<<<<<<<<<<<<<<<<<<<<<<<<
 
 sub die_usage {
-    my $usage = qq(
-Program: $prg_name
+    my $usage = qq($prg_name [--dest [[user@]host:][dir] ] [--dryrun|-d] [--quiet|-q] \(add files|del files|commit|stat\)
 
-Synopsis: Backup file organizer.
-
-Version: 0.06
-   * Fixed rsync error caused by MIS files.
-Version: 0.05
-   * Refactored 'run' which is now 'commit'.
-   * Fixed --files-from issue with rsync.
-   * Added Sys::Hostname instead of hardcoded hostname.
-   * Added check and warning for symbolic links.
-   * Added file locking of backup db.
-   * Added Text::Abbrev support for short hand commands.
-
-Description:
-   This is an experimental backup program, which is supposed to be
-   extremely easy to use from the command line. The idea is that the
-   user add to a database paths of files to be syncronized to a
-   backup destination. Deleting files from the database will prevent
-   the files from being syncronized, but they will not be deleted
-   from the backup destination.
-
-   Flagging a file for backup is basically done by adding its absolute
-   path to a database file (db_file).
-
-   Imagine this source directory tree:
-
-   ~/Data/Experiments/Results/results.txt
-
-   To add the results.txt to the backup we run:
-
-   $prg_name add ~/Data/Experiments/Results/results.txt
-
-   Which adds the absolute path to the database:
-
-   /home/user/Data/Experiments/Results/results.txt
-
-   Files are syncronized to the backup destination like this:
-
-   $prg_name commit
-
-   To get an overview of what files have been added to the backup
-   you run:
-
-   $prg_name stat
-   Status   Last modified                 Size   Path
-   OK       Tue Mar 13 09:20:22 2012  17727685   /Users/maasha/Desktop/Stuff.tar.gz
-   OK       Wed Jan 31 01:35:14 2007   6186282   /Users/maasha/Documents/Martin_A_Hansen_phd_thesis.pdf
-   OK       Wed Jan 31 01:35:01 2007   1684268   /Users/maasha/Documents/Martin_A_Hansen_speciale.pdf
-   OK       Mon Mar 12 22:43:47 2012      1594   /Users/maasha/Find_similar/findsim.rb
-   OK       Sat Feb 26 09:04:05 2011       247   /Users/maasha/maashasignature
-   OK       Mon Mar 12 13:57:51 2012     48746   /Users/maasha/perl/Simrank.pm
-   OK       Mon Mar 12 16:20:29 2012      1306   /Users/maasha/perl/random_pairs.pl
-
-   Total files:              7
-   Total OK files:           7
-   Total NEW files:          0
-   Total OLD files:          0
-   Total MIS files:          0
-   Total size:        25650128
-
-   Which outputs a table of Status, Last modified times, Size and Path.
-   There are four different Status types:
-     * OK   file was added to the backup and was syncronized.
-     * NEW  file was added to the backup, but never syncronized.
-     * OLD  file was modifed after syncronization.
-     * MIS  file was renamed or moved or deleted.
-
-Usage: $prg_name [OPTION]... <COMMAND>...
-
-Commands:
-   add     Add one or more files to the backup.
-   del     Delete one or more files from the backup.
-   commit  Run syncronization of the backup.
-   stat    Print backup statistics.
-
-   (commands can be abbreviated to shortest disambiguous prefix)
-
-Options:
-       --dest      Destination      ($opt::dest)
-   -d, --dry_run   Mock syncronize.
-   -q, --quiet     Run quietly.
-
-Examples:
-   Adding a single file to the backup:
-
-   $prg_name a <file>
-
-   Adding multiple files to the backup:
-
-   $prg_name a *.txt
-
-   Adding multiple files from a directory tree:
-
-   find . -name "*.txt" | xargs $prg_name a
-
-Author:
-    Martin Asser Hansen - Copyright (C) - All right reserved
-    mail\@maasha.dk
-    March 2012
-
-License:
-    GNU General Public License, version 2
-    http://www.gnu.org/copyleft/gpl.html
-
+type 'man $prg_name' for help.
 );
+
     print STDERR $usage;
     exit(1);
 }
