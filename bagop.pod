@@ -47,12 +47,14 @@ Quiet. Do not output progress information and warnings. Only report errors.
 
 =item B<add> I<files>
 
-Add to the backup. Mark I<files> for backing up from now on. What happens if you add a dir?
+Add to the backup. Mark I<files> for backing up from now on. Adding a
+dir will add all files and furture files under that dir.
 
 
 =item B<del> I<files>
 
-Delete from the backup. Mark I<files> for not being backed up any more. Does it mean it is deleted from the backup?
+Delete from the backup. Mark I<files> for not being backed up any
+more. Does it mean it is deleted from the backup?
 
 
 =item B<commit>

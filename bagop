@@ -178,30 +178,17 @@ sub bagop_add
 
     $db = db_retrieve();
 
-    foreach $path (@{$paths})
-    {
+    foreach $path (@{$paths}) {
         $abs_path = File::Spec->rel2abs($path);
-
-        if (exists $db->{$abs_path})
-        {
-            print STDERR qq(Warning! File already in backup -> "$abs_path"\n);
-        }
-        elsif (-d $abs_path)
-        {
-            print STDERR qq(Warning! Skipping directory -> $abs_path"\n);
-        }
-        elsif (-l $abs_path)
-        {
-            print STDERR qq(Warning! Skipping symbolic link -> $abs_path"\n);
-        }
-        elsif (-f $abs_path)
-        {
+        if (exists $db->{$abs_path}) {
+            ::warning(qq(File already in backup -> $abs_path\n));
+        } elsif (-l $abs_path) {
+            ::warning(qq(Skipping symbolic link -> $abs_path\n));
+        } elsif (-f $abs_path or -d $abs_path) {
             $db->{$abs_path} = {lstat => [lstat($abs_path)], status => 'NEW'};
             print STDERR qq(Added $abs_path\n) unless $opt::quiet;
-        }
-        else
-        {
-            die qq(Error! No such file or direcotry -> "$abs_path"\n);
+        } else {
+            ::error(qq{No such file or direcotry -> "$abs_path"\n});
         }
     }
     db_store($db);
@@ -242,13 +229,13 @@ sub bagop_commit
     my ($tmp_fh, $tmp_file) = File::Temp::tempfile(UNLINK => 1);
     my @files = sort keys %{$db};
 
-    map { print $tmp_fh "$_\n" if -f $_ } @files;
+    map { print $tmp_fh "$_\n" if (-f $_ or -d $_) } @files;
 
     my $verbose = $opt::quiet ? "": "--verbose";
     my $dryrun = $opt::dryrun ? "--dry-run" : "";
-    my @cmd = "rsync $verbose $dryrun --relative --update --files-from=$tmp_file / $opt::dest";
+    my @cmd = "rsync $verbose $dryrun --recursive --relative --update --files-from=$tmp_file / $opt::dest";
 
-    system(@cmd) == 0 or die qq(Error! Command -> @cmd failed: $?);
+    system(@cmd) == 0 or ::error(qq(Command -> @cmd failed: $?));
 
     unless ($opt::dryrun)
     {
@@ -374,4 +361,17 @@ sub db_retrieve {
     return wantarray ? %{$db} : $db;
 }
 
-# >>>>>>>>>>>>>>>>>>>>>>>>>>><<<<<<<<<<<<<<<<<<<<<<<<<<<
+sub warning {
+    my @w = @_;
+    my $fh = $Global::original_stderr || *STDERR;
+    my $prog = $Global::progname || "bagop";
+    print $fh $prog, ": Warning: ", @w;
+}
+
+
+sub error {
+    my @w = @_;
+    my $fh = $Global::original_stderr || *STDERR;
+    my $prog = $Global::progname || "bagop";
+    print $fh $prog, ": Error: ", @w;
+}

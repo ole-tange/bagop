@@ -124,7 +124,7 @@
 .\" ========================================================================
 .\"
 .IX Title "BAGOP 1"
-.TH BAGOP 1 "2012-11-14" "20121114" "bagop"
+.TH BAGOP 1 "2012-11-16" "20121114" "bagop"
 .\" For nroff, turn off justification.  Always turn off hyphenation; it makes
 .\" way too many mistakes in technical documents.
 .if n .ad l
@@ -148,6 +148,8 @@ remote host on which the backup is (default: no remote host). \fIuser\fR
 is the username on the remote host (default: your username).
 .Sp
 The syntax is the same as for \fBrsync\fR.
+.Sp
+The default is ~/backup/bagop.
 .IP "\fB\-d\fR" 9
 .IX Item "-d"
 .PD 0
@@ -164,10 +166,12 @@ Dry run. Do not do the actual backup but show what would be done.
 Quiet. Do not output progress information and warnings. Only report errors.
 .IP "\fBadd\fR \fIfiles\fR" 9
 .IX Item "add files"
-Add to the backup. Mark \fIfiles\fR for backing up from now on. What happens if you add a dir?
+Add to the backup. Mark \fIfiles\fR for backing up from now on. Adding a
+dir will add all files and furture files under that dir.
 .IP "\fBdel\fR \fIfiles\fR" 9
 .IX Item "del files"
-Delete from the backup. Mark \fIfiles\fR for not being backed up any more. Does it mean it is deleted from the backup?
+Delete from the backup. Mark \fIfiles\fR for not being backed up any
+more. Does it mean it is deleted from the backup?
 .IP "\fBcommit\fR" 9
 .IX Item "commit"
 Do the actual backup. This will copy the files to the backup.
@@ -189,7 +193,9 @@ Mark multiple files for backup:
 \&\fBbagop\fR add \-\-dest ~/backup *.gz
 .SH "EXAMPLE: Do the backup"
 .IX Header "EXAMPLE: Do the backup"
-\&\fBbagop\fR commit
+Copy the marked files to the backup dir
+.PP
+\&\fBbagop\fR \-\-dest ~/backup commit
 .SH "AUTHOR"
 .IX Header "AUTHOR"
 Copyright (C) 2011\-2012 Martin Asser Hansen <mail\e@maasha.dk>
