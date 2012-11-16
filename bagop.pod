@@ -70,26 +70,77 @@ Show status. Show the status of the files.
 
 =back
 
-=head1 EXAMPLE: Marking files for backup.
+=head1 EXAMPLE: Simple use
 
 Mark foo.gz for backup:
 
-B<bagop> add --dest ~/backup foo.gz
+B<bagop> add foo.gz
 
 Mark multiple files for backup:
 
-B<bagop> add --dest ~/backup *.gz
-
-=head1 EXAMPLE: Do the backup
+B<bagop> add *.gz
 
 Copy the marked files to the backup dir
 
-B<bagop> --dest ~/backup commit
+B<bagop> commit
 
+Show the backup status:
+
+B<bagop> stat
+
+=head1 EXAMPLE: add files recursively
+
+Mark multiple files inside directories recursively for backup using I<find> and I<xargs>:
+
+B<find> . -name "*.txt" | B<xargs> B<bagop> add
+
+=head1 EXAMPLE: backup to a specified destination
+
+The default backup destination is '~/backup/bagop'. To use an alternative destination do:
+
+B<bagop> --dest ~/my_backup add *.gz
+
+And commit the backup to that specific destination:
+
+B<bagop> --dest ~/my_backup commit
+
+=head1 EXAMPLE: backup to multiple destinations
+
+First add files for the first destination and then the second:
+
+B<bagop> --dest ~/my_backup1 add *.gz
+B<bagop> --dest ~/my_backup2 add *.gz
+
+And then commit both:
+
+B<bagop> --dest ~/my_backup commit
+B<bagop> --dest ~/my_backup commit
+
+=head1 EXAMPLE: backup to a specified host
+
+Specify the alternatie host and the optional directory at the host when adding files:
+
+B<bagop> --dest maasha@host1:my_backup add *.gz
+
+And then commit the backup for that host and directory:
+
+B<bagop> --dest maasha@host1:my_backup commit
+
+=head1 EXAMPLE: backup to multiple hosts
+
+Don't put all eggs in one basket. First add files for the first host and then the second:
+
+B<bagop> --dest maasha@host1: add *.gz
+B<bagop> --dest maasha@host2: add *.gz
+
+And then commit both:
+
+B<bagop> --dest maasha@host1: commit
+B<bagop> --dest maasha@host1: commit
 
 =head1 AUTHOR
 
-Copyright (C) 2011-2012 Martin Asser Hansen <mail\@maasha.dk>
+Copyright (C) 2011-2012 Martin Asser Hansen, http://www.maasha.dk
 
 Copyright (C) 2012 Ole Tange, http://ole.tange.dk
 

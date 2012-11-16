@@ -123,9 +123,9 @@ sub bagop_commit
 
     map { print $tmp_fh "$_\n" if (-f $_ or -d $_) } @files;
 
-    $verbose = $opt::quiet ? "": "--verbose";
-    $dryrun = $opt::dryrun ? "--dry-run" : "";
-    @cmd = "rsync $verbose $dryrun --recursive --relative --update --files-from=$tmp_file / $opt::dest";
+    $verbose = $opt::quiet ? "" : "--verbose";
+    $dryrun  = $opt::dryrun ? "--dry-run" : "";
+    @cmd     = "rsync $verbose $dryrun --recursive --relative --update --files-from=$tmp_file / $opt::dest";
 
     system(@cmd) == 0 or ::error(qq(Command -> @cmd failed: $?));
 
