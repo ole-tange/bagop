@@ -1,0 +1,377 @@
+#!/usr/bin/env perl
+
+use strict;
+use warnings;
+
+use Data::Dumper;
+use File::Basename;
+use File::Temp;
+use Getopt::Long qw(:config bundling); 
+use Storable;
+use Sys::Hostname;
+use Text::Abbrev;
+
+my ($prg_name, $host_name, $usage);
+
+$prg_name  = File::Basename::basename($0);
+$host_name = (split /\./, Sys::Hostname::hostname)[0];
+
+# >>>>>>>>>>>>>>>>>>>>>>>>>>> OPTIONS <<<<<<<<<<<<<<<<<<<<<<<<<<<
+
+
+# TODO the above should probably be set as bagop specific
+# environment variables.
+
+# No need to change anything below!
+
+Getopt::Long::GetOptions("dest|dst=s" => \$opt::dest,
+			 "dryrun|dry-run|d" => \$opt::dryrun,
+			 "quiet|q" => \$opt::quiet,
+    );
+
+$opt::dest ||= "$ENV{'HOME'}/backup/bagop";
+
+if($opt::dest =~ /:$/) {
+    # --dest host: => host:.
+    $opt::dest .=".";
+}
+
+my $abr_hash = Text::Abbrev::abbrev qw(add delete commit status);
+my $cmd = shift @ARGV or ::die_usage();
+$cmd = $abr_hash->{$cmd} or ::die_usage();
+
+if ($cmd eq "add") {
+    bagop_add(\@ARGV);
+} elsif ($cmd eq "delete") {
+    bagop_delete(\@ARGV);
+} elsif ($cmd eq "commit") {
+    bagop_commit()
+} elsif ($cmd eq "status") {
+    bagop_status();
+} else {
+    print STDERR "This should not happen" and exit;
+} 
+
+# >>>>>>>>>>>>>>>>>>>>>>>>>>> SUBROUTINES <<<<<<<<<<<<<<<<<<<<<<<<<<<
+
+sub die_usage {
+    my $usage = qq(
+Program: $prg_name
+
+Synopsis: Backup file organizer.
+
+Version: 0.06
+   * Fixed rsync error caused by MIS files.
+Version: 0.05
+   * Refactored 'run' which is now 'commit'.
+   * Fixed --files-from issue with rsync.
+   * Added Sys::Hostname instead of hardcoded hostname.
+   * Added check and warning for symbolic links.
+   * Added file locking of backup db.
+   * Added Text::Abbrev support for short hand commands.
+
+Description:
+   This is an experimental backup program, which is supposed to be
+   extremely easy to use from the command line. The idea is that the
+   user add to a database paths of files to be syncronized to a
+   backup destination. Deleting files from the database will prevent
+   the files from being syncronized, but they will not be deleted
+   from the backup destination.
+
+   Flagging a file for backup is basically done by adding its absolute
+   path to a database file (db_file).
+
+   Imagine this source directory tree:
+
+   ~/Data/Experiments/Results/results.txt
+
+   To add the results.txt to the backup we run:
+
+   $prg_name add ~/Data/Experiments/Results/results.txt
+
+   Which adds the absolute path to the database:
+
+   /home/user/Data/Experiments/Results/results.txt
+
+   Files are syncronized to the backup destination like this:
+
+   $prg_name commit
+
+   To get an overview of what files have been added to the backup
+   you run:
+
+   $prg_name stat
+   Status   Last modified                 Size   Path
+   OK       Tue Mar 13 09:20:22 2012  17727685   /Users/maasha/Desktop/Stuff.tar.gz
+   OK       Wed Jan 31 01:35:14 2007   6186282   /Users/maasha/Documents/Martin_A_Hansen_phd_thesis.pdf
+   OK       Wed Jan 31 01:35:01 2007   1684268   /Users/maasha/Documents/Martin_A_Hansen_speciale.pdf
+   OK       Mon Mar 12 22:43:47 2012      1594   /Users/maasha/Find_similar/findsim.rb
+   OK       Sat Feb 26 09:04:05 2011       247   /Users/maasha/maashasignature
+   OK       Mon Mar 12 13:57:51 2012     48746   /Users/maasha/perl/Simrank.pm
+   OK       Mon Mar 12 16:20:29 2012      1306   /Users/maasha/perl/random_pairs.pl
+
+   Total files:              7
+   Total OK files:           7
+   Total NEW files:          0
+   Total OLD files:          0
+   Total MIS files:          0
+   Total size:        25650128
+
+   Which outputs a table of Status, Last modified times, Size and Path.
+   There are four different Status types:
+     * OK   file was added to the backup and was syncronized.
+     * NEW  file was added to the backup, but never syncronized.
+     * OLD  file was modifed after syncronization.
+     * MIS  file was renamed or moved or deleted.
+
+Usage: $prg_name [OPTION]... <COMMAND>...
+
+Commands:
+   add     Add one or more files to the backup.
+   del     Delete one or more files from the backup.
+   commit  Run syncronization of the backup.
+   stat    Print backup statistics.
+
+   (commands can be abbreviated to shortest disambiguous prefix)
+
+Options:
+       --dest      Destination      ($opt::dest)
+   -d, --dry_run   Mock syncronize.
+   -q, --quiet     Run quietly.
+
+Examples:
+   Adding a single file to the backup:
+
+   $prg_name a <file>
+
+   Adding multiple files to the backup:
+
+   $prg_name a *.txt
+
+   Adding multiple files from a directory tree:
+
+   find . -name "*.txt" | xargs $prg_name a
+
+Author:
+    Martin Asser Hansen - Copyright (C) - All right reserved
+    mail\@maasha.dk
+    March 2012
+
+License:
+    GNU General Public License, version 2
+    http://www.gnu.org/copyleft/gpl.html
+
+);
+    print STDERR $usage;
+    exit(1);
+}
+
+
+
+# Add files to backup.
+sub bagop_add
+{
+    my ($paths,      # List of paths to add.
+    ) = @_;
+
+    my ($db, $path, $abs_path);
+
+    $db = db_retrieve();
+
+    foreach $path (@{$paths}) {
+        $abs_path = File::Spec->rel2abs($path);
+        if (exists $db->{$abs_path}) {
+            ::warning(qq(File already in backup -> $abs_path\n));
+        } elsif (-l $abs_path) {
+            ::warning(qq(Skipping symbolic link -> $abs_path\n));
+        } elsif (-f $abs_path or -d $abs_path) {
+            $db->{$abs_path} = {lstat => [lstat($abs_path)], status => 'NEW'};
+            print STDERR qq(Added $abs_path\n) unless $opt::quiet;
+        } else {
+            ::error(qq{No such file or direcotry -> "$abs_path"\n});
+        }
+    }
+    db_store($db);
+}
+
+# Delete a file from backup.
+sub bagop_delete
+{
+    my ($paths,      # List of paths to delete.
+    ) = @_;
+
+    my ($db, $path, $abs_path);
+
+    $db = db_retrieve();
+
+    foreach $path (@{$paths})
+    {
+        $abs_path = File::Spec->rel2abs($path);
+
+        if (exists $db->{$abs_path}) {
+            delete $db->{$abs_path};
+            print STDERR qq(Deleted $abs_path\n) unless $opt::quiet;
+        }
+        else {
+            print STDERR qq(Warning! No such file -> "$abs_path"\n);
+        }
+    }
+
+    db_store($db);
+}
+
+# Backup files.
+sub bagop_commit
+{
+    my ($fh, $file);
+
+    my $db = db_retrieve();
+    my ($tmp_fh, $tmp_file) = File::Temp::tempfile(UNLINK => 1);
+    my @files = sort keys %{$db};
+
+    map { print $tmp_fh "$_\n" if (-f $_ or -d $_) } @files;
+
+    my $verbose = $opt::quiet ? "": "--verbose";
+    my $dryrun = $opt::dryrun ? "--dry-run" : "";
+    my @cmd = "rsync $verbose $dryrun --recursive --relative --update --files-from=$tmp_file / $opt::dest";
+
+    system(@cmd) == 0 or ::error(qq(Command -> @cmd failed: $?));
+
+    unless ($opt::dryrun)
+    {
+        foreach $file (@files)
+        {
+            $db->{$file}->{'lstat'}  = [lstat($file)];
+            $db->{$file}->{'status'} = 'OK';
+        }
+    }
+    db_store($db);
+    db_commit();
+}
+
+# Collect and print backup stats.
+sub bagop_status
+{
+    my ($db, @files, $file, @stats_old, @stats_new, $size_old, $size_new, $mtime_old, $mtime_new,
+        $status, $time, $tot_size, $tot_new, $tot_ok, $tot_old, $tot_mis);
+
+    $tot_size = 0;
+    $tot_new  = 0;
+    $tot_ok   = 0;
+    $tot_old  = 0;
+    $tot_mis  = 0;
+
+    $db = db_retrieve();
+
+    @files = sort keys %{$db};
+
+    printf("%-10s %-25s %8s %8s\n", "Status", "Last modified", "Size", "Path");
+
+    foreach $file (@files)
+    {
+        if (-f $file)
+        {
+            $status    = $db->{$file}->{'status'};
+            @stats_old = @{$db->{$file}->{'lstat'}};
+            $size_old  = $stats_old[7];
+            $mtime_old = $stats_old[9];
+
+            @stats_new = lstat($file);
+            $size_new  = $stats_new[7];
+            $mtime_new = $stats_new[9];
+        }
+        else
+        {
+            $status = "MIS"
+        }
+
+        if (defined $status and $status eq 'MIS')
+        {
+            $tot_mis += 1;
+        }
+        elsif ($db->{$file}->{'status'} eq 'NEW')
+        {
+            $status  = "NEW";
+            $tot_new += 1;
+        }
+        elsif ($size_old == $size_new and $mtime_old == $mtime_new)
+        {
+            $status  = "OK";
+            $tot_ok += 1;
+        }
+        else
+        {
+            $status   = "OLD";
+            $tot_old += 1;
+        }
+
+        $time  = scalar localtime $mtime_new;
+
+        printf("%-10s %-25s % 8s     %s\n", $status, $time, $size_new, $file);
+
+        $tot_size += $size_new;
+    }
+
+    print "\n";
+    printf("Total files:     %10d\n", scalar @files);
+    printf("Total OK files:  %10d\n", $tot_ok);
+    printf("Total NEW files: %10d\n", $tot_new);
+    printf("Total OLD files: %10d\n", $tot_old);
+    printf("Total MIS files: %10d\n", $tot_mis);
+    printf("Total size:      %10d\n", $tot_size);
+}
+
+# Store the backup db to file.
+sub db_store
+{
+    my ($db,         # Data
+    ) = @_;
+
+    Storable::lock_store($db, db_filename());
+}
+
+sub db_commit {
+    my $basefile = $opt::dest;
+    $basefile =~ s/[^a-z0-9]/_/gi;
+    my $cachedir = $ENV{'HOME'}."/.bagop/cache";
+    my $dbfile = "$cachedir/$basefile";
+    system("rsync $dbfile $opt::dest/.$basefile 2>/dev/null;");
+}
+
+sub db_filename {
+    my $basefile = $opt::dest;
+    $basefile =~ s/[^a-z0-9]/_/gi;
+    my $cachedir = $ENV{'HOME'}."/.bagop/cache";
+    my $dbfile = "$cachedir/$basefile";
+    if(not -f $dbfile) {
+	system("mkdir -p $cachedir; rsync $opt::dest/.$basefile $dbfile 2>/dev/null;");
+    }
+    return $dbfile;
+}
+
+# Retrieve the backup db from file.
+sub db_retrieve {
+    my ($db);
+    my $dbfile = db_filename();
+    if(-f $dbfile) {
+	$db = Storable::lock_retrieve($dbfile);
+    } else {
+	$db = {};
+    }
+    return wantarray ? %{$db} : $db;
+}
+
+sub warning {
+    my @w = @_;
+    my $fh = $Global::original_stderr || *STDERR;
+    my $prog = $Global::progname || "bagop";
+    print $fh $prog, ": Warning: ", @w;
+}
+
+
+sub error {
+    my @w = @_;
+    my $fh = $Global::original_stderr || *STDERR;
+    my $prog = $Global::progname || "bagop";
+    print $fh $prog, ": Error: ", @w;
+}
