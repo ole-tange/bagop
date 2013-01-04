@@ -145,9 +145,11 @@ sub bagop_commit
 # Collect and print backup stats.
 sub bagop_status
 {
-    my ($db, @files, $file, @stats_old, @stats_new, $size_old, $size_new, $mtime_old, $mtime_new,
-        $status, $time, $tot_size, $tot_new, $tot_ok, $tot_old, $tot_mis);
+    my ($db, @paths, $path, $rel_path, @stats_old, @stats_new, $size_old,
+        $size_new, $mtime_old, $mtime_new, $status, $time, $tot_all, $tot_size,
+        $tot_new, $tot_ok, $tot_old, $tot_mis);
 
+    $tot_all  = 0;
     $tot_size = 0;
     $tot_new  = 0;
     $tot_ok   = 0;
@@ -156,20 +158,24 @@ sub bagop_status
 
     $db = db_retrieve();
 
-    @files = sort keys %{$db};
+    @paths = sort keys %{$db};
 
     printf("%-10s %-25s %8s %8s\n", "Status", "Last modified", "Size", "Path");
 
-    foreach $file (@files)
+    foreach $path (@paths)
     {
-        if (-f $file)
+        $rel_path = File::Spec->abs2rel($path);
+
+        next if $rel_path =~ /^\.\./; # Skipping any parent paths
+
+        if (-f $path)
         {
-            $status    = $db->{$file}->{'status'};
-            @stats_old = @{$db->{$file}->{'lstat'}};
+            $status    = $db->{$path}->{'status'};
+            @stats_old = @{$db->{$path}->{'lstat'}};
             $size_old  = $stats_old[7];
             $mtime_old = $stats_old[9];
 
-            @stats_new = lstat($file);
+            @stats_new = lstat($path);
             $size_new  = $stats_new[7];
             $mtime_new = $stats_new[9];
         }
@@ -180,35 +186,34 @@ sub bagop_status
 
         if (defined $status and $status eq 'MIS')
         {
-            $tot_mis += 1;
+            $tot_mis++;
         }
-        elsif ($db->{$file}->{'status'} eq 'NEW')
+        elsif ($db->{$path}->{'status'} eq 'NEW')
         {
-            $status  = "NEW";
-            $tot_new += 1;
+            $status = "NEW";
+            $tot_new++;
         }
         elsif ($size_old == $size_new and $mtime_old == $mtime_new)
         {
             $status  = "OK";
-            $tot_ok += 1;
+            $tot_ok++;
         }
         else
         {
             $status   = "OLD";
-            $tot_old += 1;
+            $tot_old++;
         }
 
         $time = scalar localtime $mtime_new;
 
-        $file =~ s/$ENV{HOME}/~/;
-
-        printf("%-10s %-25s % 8s     %s\n", $status, $time, $size_new, $file);
+        printf("%-10s %-25s % 8s     %s\n", $status, $time, $size_new, $rel_path);
 
         $tot_size += $size_new;
+        $tot_all++;
     }
 
     print "\n";
-    printf("Total files:     %10d\n", scalar @files);
+    printf("Total files:     %10d\n", $tot_all);
     printf("Total OK files:  %10d\n", $tot_ok);
     printf("Total NEW files: %10d\n", $tot_new);
     printf("Total OLD files: %10d\n", $tot_old);
