@@ -198,7 +198,9 @@ sub bagop_status
             $tot_old += 1;
         }
 
-        $time  = scalar localtime $mtime_new;
+        $time = scalar localtime $mtime_new;
+
+        $file =~ s/$ENV{HOME}/~/;
 
         printf("%-10s %-25s % 8s     %s\n", $status, $time, $size_new, $file);
 
