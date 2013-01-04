@@ -42,7 +42,7 @@ if ($cmd eq "add") {
 } elsif ($cmd eq "status") {
     bagop_status();
 } else {
-    print STDERR "This should not happen" and die;
+    die "This should not happen";
 } 
 
 # >>>>>>>>>>>>>>>>>>>>>>>>>>> SUBROUTINES <<<<<<<<<<<<<<<<<<<<<<<<<<<
@@ -60,9 +60,7 @@ sub set_dest
 
     unless (-d $opt::dest)
     {
-        print STDERR qq(ERROR: --dest $opt::dest: No such file or directory\n);
-
-        exit;
+        ::error(qq(ERROR: --dest $opt::dest: No such file or directory\n));
     }
 }
 
@@ -125,7 +123,7 @@ sub bagop_delete
             print STDERR qq(Deleted $abs_path\n) unless $opt::quiet;
         }
         else {
-            print STDERR qq(Warning! No such file -> "$abs_path"\n);
+            ::warning(qq(Warning! No such file or directory -> "$abs_path"\n));
         }
     }
 
@@ -291,10 +289,10 @@ sub db_retrieve
     return wantarray ? %{$db} : $db;
 }
 
-# Output warnings.
+# Output a warning.
 sub warning
 {
-    my ($warnings,   # list of warnings.
+    my ($warning,   # warning message.
     ) = @_;
 
     my ($fh, $prog);
@@ -302,12 +300,13 @@ sub warning
     $fh   = $Global::original_stderr || *STDERR;
     $prog = $Global::progname || $prg_name;
 
-    print $fh $prog, ": Warning: ", @{$warnings};
+    print $fh $prog, ": Warning: ", $warning;
 }
 
-# Output errors.
-sub error {
-    my ($errors,   # list of errors.
+# Output an error and exit.
+sub error
+{
+    my ($error,   # error message.
     ) = @_;
 
     my ($fh, $prog);
@@ -315,5 +314,7 @@ sub error {
     $fh   = $Global::original_stderr || *STDERR;
     $prog = $Global::progname || $prg_name;
 
-    print $fh $prog, ": Error: ", @{$errors};
+    print $fh $prog, ": Error: ", $error;
+
+    exit(1);
 }
