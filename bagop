@@ -165,7 +165,7 @@ sub bagop_status
 {
     my ($db, @paths, $path, $rel_path, @stats_old, @stats_new, $size_old,
         $size_new, $mtime_old, $mtime_new, $status, $time, $tot_all, $tot_size,
-        $tot_new, $tot_ok, $tot_old, $tot_mis);
+        $tot_new, $tot_ok, $tot_old, $tot_mis, $size);
 
     $tot_all  = 0;
     $tot_size = 0;
@@ -186,47 +186,47 @@ sub bagop_status
 
         next if $rel_path =~ /^\.\./; # Skipping any parent paths
 
+        $status    = $db->{$path}->{'status'};
+        @stats_old = @{$db->{$path}->{'lstat'}};
+        $size_old  = $stats_old[7];
+        $mtime_old = $stats_old[9];
+
         if (-f $path)
         {
-            $status    = $db->{$path}->{'status'};
-            @stats_old = @{$db->{$path}->{'lstat'}};
-            $size_old  = $stats_old[7];
-            $mtime_old = $stats_old[9];
-
             @stats_new = lstat($path);
             $size_new  = $stats_new[7];
             $mtime_new = $stats_new[9];
+
+            if ($status eq 'NEW')
+            {
+                $tot_new++;
+            }
+            elsif ($size_old == $size_new and $mtime_old == $mtime_new)
+            {
+                $status = "OK";
+                $tot_ok++;
+            }
+            else
+            {
+                $status = "OLD";
+                $tot_old++;
+            }
+
+            $size = $size_new;
+            $time = scalar localtime $mtime_new;
         }
         else
         {
-            $status = "MIS"
-        }
-
-        if (defined $status and $status eq 'MIS')
-        {
+            $status = "MIS";
             $tot_mis++;
-        }
-        elsif ($db->{$path}->{'status'} eq 'NEW')
-        {
-            $status = "NEW";
-            $tot_new++;
-        }
-        elsif ($size_old == $size_new and $mtime_old == $mtime_new)
-        {
-            $status  = "OK";
-            $tot_ok++;
-        }
-        else
-        {
-            $status   = "OLD";
-            $tot_old++;
+
+            $time = scalar localtime $mtime_old;
+            $size = $size_old;
         }
 
-        $time = scalar localtime $mtime_new;
+        printf("%-10s %-25s % 8s     %s\n", $status, $time, $size, $rel_path);
 
-        printf("%-10s %-25s % 8s     %s\n", $status, $time, $size_new, $rel_path);
-
-        $tot_size += $size_new;
+        $tot_size += $size;
         $tot_all++;
     }
 
