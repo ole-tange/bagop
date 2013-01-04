@@ -18,23 +18,20 @@ $host_name = (split /\./, Sys::Hostname::hostname)[0];
 
 # >>>>>>>>>>>>>>>>>>>>>>>>>>> OPTIONS <<<<<<<<<<<<<<<<<<<<<<<<<<<
 
+my ($abr_hash, $cmd);
+
 Getopt::Long::GetOptions(
     "dest|dst=s"       => \$opt::dest,
     "dryrun|dry-run|d" => \$opt::dryrun,
     "quiet|q"          => \$opt::quiet,
 );
 
-$opt::dest ||= "$ENV{'HOME'}/backup/bagop";
+set_dest();
 
-if($opt::dest =~ /:$/)
-{
-    # --dest host: => host:.
-    $opt::dest .= ".";
-}
+$abr_hash = Text::Abbrev::abbrev qw(add delete commit status);
+$cmd      = shift @ARGV       or ::exit_usage();
 
-my $abr_hash = Text::Abbrev::abbrev qw(add delete commit status);
-my $cmd      = shift @ARGV or ::die_usage();
-$cmd         = $abr_hash->{$cmd} or ::die_usage();
+$cmd         = $abr_hash->{$cmd} or ::exit_usage();
 
 if ($cmd eq "add") {
     bagop_add(\@ARGV);
@@ -50,7 +47,28 @@ if ($cmd eq "add") {
 
 # >>>>>>>>>>>>>>>>>>>>>>>>>>> SUBROUTINES <<<<<<<<<<<<<<<<<<<<<<<<<<<
 
-sub die_usage {
+# Set and check the --dest dir
+sub set_dest
+{
+    $opt::dest ||= "$ENV{'HOME'}/backup/bagop";
+
+    if($opt::dest =~ /:$/)
+    {
+        # --dest host: => host:.
+        $opt::dest .= ".";
+    }
+
+    unless (-d $opt::dest)
+    {
+        print STDERR qq(ERROR: --dest $opt::dest: No such file or directory\n);
+
+        exit;
+    }
+}
+
+# Print usage and exit.
+sub exit_usage
+{
     my $usage = qq($prg_name [--dest [[user@]host:][dir] ] [--dryrun|-d] [--quiet|-q] \(add files|del files|commit|stat\)
 
 type 'man $prg_name' for help.
