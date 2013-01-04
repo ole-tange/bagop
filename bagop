@@ -191,7 +191,7 @@ sub bagop_status
         $size_old  = $stats_old[7];
         $mtime_old = $stats_old[9];
 
-        if (-f $path)
+        if (-f $path or -d $path)
         {
             @stats_new = lstat($path);
             $size_new  = $stats_new[7];
