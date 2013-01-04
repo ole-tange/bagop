@@ -81,7 +81,7 @@ type 'man $prg_name' for help.
 # Add files to backup.
 sub bagop_add
 {
-    my ($paths,      # List of paths to add.
+    my ($paths,   # List of paths to add.
     ) = @_;
 
     my ($db, $path, $abs_path);
@@ -94,6 +94,8 @@ sub bagop_add
             ::warning(qq(File already in backup -> $abs_path\n));
         } elsif (-l $abs_path) {
             ::warning(qq(Skipping symbolic link -> $abs_path\n));
+        } elsif (! -r $abs_path) {
+            ::warning(qq(Permission denied -> $abs_path\n));
         } elsif (-f $abs_path or -d $abs_path) {
             $db->{$abs_path} = {lstat => [lstat($abs_path)], status => 'NEW'};
             print STDERR qq(Added $abs_path\n) unless $opt::quiet;
