@@ -124,28 +124,29 @@
 .\" ========================================================================
 .\"
 .IX Title "BAGOP 1"
-.TH BAGOP 1 "2012-11-28" "20121114" "bagop"
+.TH BAGOP 1 "2013-01-04" "20121114" "bagop"
 .\" For nroff, turn off justification.  Always turn off hyphenation; it makes
 .\" way too many mistakes in technical documents.
 .if n .ad l
 .nh
 .SH "NAME"
-bagop \- mark files for backup and back them up
+bagop \- mark files and directories for backup and back them up
 .SH "SYNOPSIS"
 .IX Header "SYNOPSIS"
-\&\fBbagop\fR [\-\-dest \fI[[user@]host:][dir]\fR ] [\-\-dryrun|\-d] [\-\-quiet|\-q] (add \fIfiles\fR|del \fIfiles\fR|commit|stat)
+\&\fBbagop\fR [\-\-dest \fI[[user@]host:][dir]\fR ] [\-\-dryrun|\-d] [\-\-quiet|\-q] (add \fIpaths\fR|del \fIpaths\fR|commit|stat)
 .SH "DESCRIPTION"
 .IX Header "DESCRIPTION"
-\&\fBbagop\fR is a tool for backing up files that are mixed with files that should not be backed up.
+\&\fBbagop\fR is a tool for flagging specific files and directories that should be
+backed up.
 .SH "OPTIONS"
 .IX Header "OPTIONS"
 .IP "\fB\-\-dest\fR \fI[[user@]host:][dir]\fR" 9
 .IX Item "--dest [[user@]host:][dir]"
-Destination folder. \fB\-\-dest\fR determines where the backup will be
-saved. \fIdir\fR is the directory where the backup should be saved
-(defaults to . if a remote host is given). \fIhost\fR is the name of the
-remote host on which the backup is (default: no remote host). \fIuser\fR
-is the username on the remote host (default: your username).
+Destination folder. \fB\-\-dest\fR determines where the backup will be saved. \fIdir\fR
+is the directory where the backup should be saved (defaults to . if a remote
+host is given). \fIhost\fR is the name of the remote host on which the backup is
+(default: no remote host). \fIuser\fR is the username on the remote host (default:
+your username).
 .Sp
 The syntax is the same as for \fBrsync\fR.
 .Sp
@@ -164,27 +165,27 @@ Dry run. Do not do the actual backup but show what would be done.
 .IX Item "--quiet"
 .PD
 Quiet. Do not output progress information and warnings. Only report errors.
-.IP "\fBadd\fR \fIfiles\fR" 9
-.IX Item "add files"
-Add to the backup. Mark \fIfiles\fR for backing up from now on. Adding a
-dir will add all files and furture files under that dir.
-.IP "\fBdel\fR \fIfiles\fR" 9
-.IX Item "del files"
-Delete from the backup. Mark \fIfiles\fR for not being backed up any
-more. Does it mean it is deleted from the backup?
+.IP "\fBadd\fR \fIpaths\fR" 9
+.IX Item "add paths"
+Add to the backup. Mark \fIpaths\fR for backing up from now on. Adding a
+directory will add all files and furture files under that directory.
+.IP "\fBdel\fR \fIpaths\fR" 9
+.IX Item "del paths"
+Delete from the backup. Mark \fIpaths\fR for not being backed up any
+more and delete it from the backup.
 .IP "\fBcommit\fR" 9
 .IX Item "commit"
-Do the actual backup. This will copy the files to the backup.
+Do the actual backup. This will copy the files and directories to the backup.
 .IP "\fBstat\fR" 9
 .IX Item "stat"
 .PD 0
 .IP "\fBstatus\fR" 9
 .IX Item "status"
 .PD
-Show status. Show the status of the files.
+Show status. Show the status of the files and directories.
 .SH "EXAMPLE: Simple use"
 .IX Header "EXAMPLE: Simple use"
-Mark foo.gz for backup:
+Mark a file foo.gz for backup:
 .PP
 \&\fBbagop\fR add foo.gz
 .PP
@@ -192,18 +193,17 @@ Mark multiple files for backup:
 .PP
 \&\fBbagop\fR add *.gz
 .PP
-Copy the marked files to the backup dir
+Mark a directory results/ for backup:
+.PP
+\&\fBbagop\fR add results/
+.PP
+Copy the marked files and directories to the backup dir
 .PP
 \&\fBbagop\fR commit
 .PP
 Show the backup status:
 .PP
 \&\fBbagop\fR stat
-.SH "EXAMPLE: add files recursively"
-.IX Header "EXAMPLE: add files recursively"
-Mark multiple files inside directories recursively for backup using \fIfind\fR and \fIxargs\fR:
-.PP
-\&\fBfind\fR . \-name \*(L"*.txt\*(R" | \fBxargs\fR \fBbagop\fR add
 .SH "EXAMPLE: backup to a specified destination"
 .IX Header "EXAMPLE: backup to a specified destination"
 The default backup destination is '~/backup/bagop'. To use an alternative destination do:
@@ -246,12 +246,12 @@ And then commit both:
 \&\fBbagop\fR \-\-dest maasha@host1: commit
 .SH "AUTHOR"
 .IX Header "AUTHOR"
-Copyright (C) 2011\-2012 Martin Asser Hansen, http://www.maasha.dk
+Copyright (C) 2011\-2013 Martin Asser Hansen, http://www.maasha.dk
 .PP
-Copyright (C) 2012 Ole Tange, http://ole.tange.dk
+Copyright (C) 2012\-2013 Ole Tange, http://ole.tange.dk
 .SH "LICENSE"
 .IX Header "LICENSE"
-Copyright (C) 2007,2008,2009,2010,2011,2012 Free Software Foundation,
+Copyright (C) 2007,2008,2009,2010,2011,2012,2013 Free Software Foundation,
 Inc.
 .PP
 This program is free software; you can redistribute it and/or modify

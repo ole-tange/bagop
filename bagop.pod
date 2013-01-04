@@ -2,17 +2,19 @@
 
 =head1 NAME
 
-bagop - mark files for backup and back them up
+bagop - mark files and directories for backup and back them up
 
 
 =head1 SYNOPSIS
 
-B<bagop> [--dest I<[[user@]host:][dir]> ] [--dryrun|-d] [--quiet|-q] (add I<files>|del I<files>|commit|stat) 
+B<bagop> [--dest I<[[user@]host:][dir]> ] [--dryrun|-d] [--quiet|-q] (add I<paths>|del I<paths>|commit|stat) 
 
 
 =head1 DESCRIPTION
 
-B<bagop> is a tool for backing up files that are mixed with files that should not be backed up.
+B<bagop> is a tool for flagging specific files and directories that should be
+backed up.
+
 
 =head1 OPTIONS
 
@@ -20,11 +22,11 @@ B<bagop> is a tool for backing up files that are mixed with files that should no
 
 =item B<--dest> I<[[user@]host:][dir]> 
 
-Destination folder. B<--dest> determines where the backup will be
-saved. I<dir> is the directory where the backup should be saved
-(defaults to . if a remote host is given). I<host> is the name of the
-remote host on which the backup is (default: no remote host). I<user>
-is the username on the remote host (default: your username).
+Destination folder. B<--dest> determines where the backup will be saved. I<dir>
+is the directory where the backup should be saved (defaults to . if a remote
+host is given). I<host> is the name of the remote host on which the backup is
+(default: no remote host). I<user> is the username on the remote host (default:
+your username).
 
 The syntax is the same as for B<rsync>.
 
@@ -45,34 +47,34 @@ Dry run. Do not do the actual backup but show what would be done.
 Quiet. Do not output progress information and warnings. Only report errors.
 
 
-=item B<add> I<files>
+=item B<add> I<paths>
 
-Add to the backup. Mark I<files> for backing up from now on. Adding a
-dir will add all files and furture files under that dir.
+Add to the backup. Mark I<paths> for backing up from now on. Adding a
+directory will add all files and furture files under that directory.
 
 
-=item B<del> I<files>
+=item B<del> I<paths>
 
-Delete from the backup. Mark I<files> for not being backed up any
-more. Does it mean it is deleted from the backup?
+Delete from the backup. Mark I<paths> for not being backed up any
+more and delete it from the backup.
 
 
 =item B<commit>
 
-Do the actual backup. This will copy the files to the backup.
+Do the actual backup. This will copy the files and directories to the backup.
 
 
 =item B<stat>
 
 =item B<status>
 
-Show status. Show the status of the files.
+Show status. Show the status of the files and directories.
 
 =back
 
 =head1 EXAMPLE: Simple use
 
-Mark foo.gz for backup:
+Mark a file foo.gz for backup:
 
 B<bagop> add foo.gz
 
@@ -80,19 +82,17 @@ Mark multiple files for backup:
 
 B<bagop> add *.gz
 
-Copy the marked files to the backup dir
+Mark a directory results/ for backup:
+
+B<bagop> add results/
+
+Copy the marked files and directories to the backup dir
 
 B<bagop> commit
 
 Show the backup status:
 
 B<bagop> stat
-
-=head1 EXAMPLE: add files recursively
-
-Mark multiple files inside directories recursively for backup using I<find> and I<xargs>:
-
-B<find> . -name "*.txt" | B<xargs> B<bagop> add
 
 =head1 EXAMPLE: backup to a specified destination
 
@@ -140,13 +140,13 @@ B<bagop> --dest maasha@host1: commit
 
 =head1 AUTHOR
 
-Copyright (C) 2011-2012 Martin Asser Hansen, http://www.maasha.dk
+Copyright (C) 2011-2013 Martin Asser Hansen, http://www.maasha.dk
 
-Copyright (C) 2012 Ole Tange, http://ole.tange.dk
+Copyright (C) 2012-2013 Ole Tange, http://ole.tange.dk
 
 =head1 LICENSE
 
-Copyright (C) 2007,2008,2009,2010,2011,2012 Free Software Foundation,
+Copyright (C) 2007,2008,2009,2010,2011,2012,2013 Free Software Foundation,
 Inc.
 
 This program is free software; you can redistribute it and/or modify
