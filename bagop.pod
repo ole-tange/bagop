@@ -55,6 +55,8 @@ directory will add all files and furture files under that directory.
 
 =item B<del> I<paths>
 
+=item B<delete>
+
 Delete from the backup. Mark I<paths> for not being backed up any
 more and delete it from the backup.
 
@@ -64,7 +66,7 @@ more and delete it from the backup.
 Do the actual backup. This will copy the files and directories to the backup.
 
 
-=item B<stat>
+=item B<stat> I<path>
 
 =item B<status>
 
@@ -93,6 +95,10 @@ B<bagop> commit
 Show the backup status:
 
 B<bagop> stat
+
+Show the backup status for all files:
+
+B<bagop> stat /
 
 =head1 EXAMPLE: backup to a specified destination
 

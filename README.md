@@ -36,13 +36,13 @@ OPTIONS
              that directory.
 
     del *paths*
-             Delete from the backup. Mark *paths* for not being backed up
+    delete   Delete from the backup. Mark *paths* for not being backed up
              any more and delete it from the backup.
 
     commit   Do the actual backup. This will copy the files and directories
              to the backup.
 
-    stat
+    stat *path*
     status   Show status. Show the status of the files and directories.
 
 EXAMPLE: Simple use
@@ -65,6 +65,10 @@ EXAMPLE: Simple use
     Show the backup status:
 
     bagop stat
+
+    Show the backup status for all files:
+
+    bagop stat /
 
 EXAMPLE: backup to a specified destination
     The default backup destination is '~/backup/bagop'. To use an

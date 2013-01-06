@@ -30,8 +30,7 @@ set_dest();
 
 $abr_hash = Text::Abbrev::abbrev qw(add delete commit status);
 $cmd      = shift @ARGV       or ::exit_usage();
-
-$cmd         = $abr_hash->{$cmd} or ::exit_usage();
+$cmd      = $abr_hash->{$cmd} or ::exit_usage();
 
 if ($cmd eq "add") {
     bagop_add(\@ARGV);
@@ -40,7 +39,7 @@ if ($cmd eq "add") {
 } elsif ($cmd eq "commit") {
     bagop_commit()
 } elsif ($cmd eq "status") {
-    bagop_status();
+    bagop_status($ARGV[0]);
 } else {
     die "This should not happen";
 } 
@@ -67,12 +66,16 @@ sub set_dest
 # Print usage and exit.
 sub exit_usage
 {
-    my $usage = qq($prg_name [--dest [[user@]host:][dir] ] [--dryrun|-d] [--quiet|-q] \(add files|del files|commit|stat\)
+    print <<"USAGE";
+$prg_name [options] add <files> | delete <files> | commit | status [dir]
+   options:   [--dest [[user@]host:][dir]]
+              [--dryrun|-d]
+              [--quiet|-q]
 
 type 'man $prg_name' for help.
-);
 
-    print STDERR $usage;
+USAGE
+
     exit(1);
 }
 
@@ -98,7 +101,7 @@ sub bagop_add
             $db->{$abs_path} = {lstat => [lstat($abs_path)], status => 'NEW'};
             print STDERR qq(Added $abs_path\n) unless $opt::quiet;
         } else {
-            ::error(qq{No such file or direcotry -> "$abs_path"\n});
+            ::error(qq{No such file or directory -> "$abs_path"\n});
         }
     }
     db_store($db);
@@ -107,7 +110,7 @@ sub bagop_add
 # Delete a file from backup.
 sub bagop_delete
 {
-    my ($paths,      # List of paths to delete.
+    my ($paths,   # List of paths to delete.
     ) = @_;
 
     my ($db, $path, $abs_path);
@@ -163,6 +166,9 @@ sub bagop_commit
 # Collect and print backup stats.
 sub bagop_status
 {
+    my ($base   # base path to show status from
+       ) = @_;
+
     my ($db, @paths, $path, $rel_path, @stats_old, @stats_new, $size_old,
         $size_new, $mtime_old, $mtime_new, $status, $time, $tot_all, $tot_size,
         $tot_new, $tot_ok, $tot_old, $tot_mis, $size);
@@ -182,7 +188,7 @@ sub bagop_status
 
     foreach $path (@paths)
     {
-        $rel_path = File::Spec->abs2rel($path);
+        $rel_path = File::Spec->abs2rel($path, $base);
 
         next if $rel_path =~ /^\.\./; # Skipping any parent paths
 

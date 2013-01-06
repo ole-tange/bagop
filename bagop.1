@@ -124,7 +124,7 @@
 .\" ========================================================================
 .\"
 .IX Title "BAGOP 1"
-.TH BAGOP 1 "2013-01-04" "20121114" "bagop"
+.TH BAGOP 1 "2013-01-06" "20121114" "bagop"
 .\" For nroff, turn off justification.  Always turn off hyphenation; it makes
 .\" way too many mistakes in technical documents.
 .if n .ad l
@@ -171,13 +171,17 @@ Add to the backup. Mark \fIpaths\fR for backing up from now on. Adding a
 directory will add all files and furture files under that directory.
 .IP "\fBdel\fR \fIpaths\fR" 9
 .IX Item "del paths"
+.PD 0
+.IP "\fBdelete\fR" 9
+.IX Item "delete"
+.PD
 Delete from the backup. Mark \fIpaths\fR for not being backed up any
 more and delete it from the backup.
 .IP "\fBcommit\fR" 9
 .IX Item "commit"
 Do the actual backup. This will copy the files and directories to the backup.
-.IP "\fBstat\fR" 9
-.IX Item "stat"
+.IP "\fBstat\fR \fIpath\fR" 9
+.IX Item "stat path"
 .PD 0
 .IP "\fBstatus\fR" 9
 .IX Item "status"
@@ -204,6 +208,10 @@ Copy the marked files and directories to the backup dir
 Show the backup status:
 .PP
 \&\fBbagop\fR stat
+.PP
+Show the backup status for all files:
+.PP
+\&\fBbagop\fR stat /
 .SH "EXAMPLE: backup to a specified destination"
 .IX Header "EXAMPLE: backup to a specified destination"
 The default backup destination is '~/backup/bagop'. To use an alternative destination do:
