@@ -89,7 +89,7 @@ sub bagop_add
 
     my ($db, $path, $abs_path);
 
-    paths_expand($paths);
+    $paths = paths_expand($paths);
 
     $db = db_retrieve();
 
@@ -120,7 +120,7 @@ sub bagop_delete
 
     my ($db, $path, $abs_path);
 
-    paths_expand($paths);
+    $paths = paths_expand($paths);
 
     $db = db_retrieve();
 
@@ -301,16 +301,18 @@ sub paths_expand
     my ($paths,   # List of paths to expand.
     ) = @_;
 
-    my @files;
+    my ($path, @paths);
 
-    if (@{$paths})
+    foreach $path (@{$paths})
     {
-        File::Find::find({ wanted => sub { push @files, $_ }, no_chdir => 1 }, @{$paths});
+        push @paths, $path;
 
-        @{$paths} = @files;
+        if (-d $path) {
+            push @paths, @{paths_expand([glob("$path/*")])};
+        }
     }
 
-    return $paths;
+    return wantarray ? @paths : \@paths;
 }
 
 # Store the backup db to file.
