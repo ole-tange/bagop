@@ -217,88 +217,95 @@ sub bagop_status
     my ($rel_base   # relative base path to show status from
        ) = @_;
 
-    my ($db, @paths, $path, $rel_path, @stats_old, @stats_new, $size_old,
-        $size_new, $mtime_old, $mtime_new, $status, $time, $tot_all, $tot_size,
-        $tot_new, $tot_ok, $tot_old, $tot_del, $tot_mis, $size, $abs_base);
+    my ($db, @paths, $path, $rel_path, @stats_db, @stats_file, $size_db,
+        $size_file, $mtime_db, $mtime_file, $status, $time, $size, $abs_base,
+        @db_paths, @table, $row, %counts);
 
-    $tot_all  = 0;
-    $tot_size = 0;
-    $tot_new  = 0;
-    $tot_ok   = 0;
-    $tot_old  = 0;
-    $tot_del  = 0;
-    $tot_mis  = 0;
-
-    $abs_base = Cwd::realpath($rel_base) if $rel_base;
-
-    $db = db_retrieve();
-
-    @paths = sort keys %{$db};
-
-    printf("%-10s %-25s %8s %8s\n", "Status", "Last modified", "Size", "Path");
+    $abs_base = $rel_base ? Cwd::realpath($rel_base) : Cwd::getcwd;
+    $db       = db_retrieve();
+    @paths    = sort keys %{$db};
 
     foreach $path (@paths)
     {
         $rel_path = File::Spec->abs2rel($path, $abs_base);
 
-        next if $rel_path =~ /^\.\./; # Skipping any parent paths
+        next if $rel_path =~ /^\./;
 
-        $status    = $db->{$path}->{'status'};
-        @stats_old = @{$db->{$path}->{'lstat'}};
-        $size_old  = $stats_old[7];
-        $mtime_old = $stats_old[9];
+        @stats_db = @{$db->{$path}->{'lstat'}};
+        $size_db  = $stats_db[7];
+        $mtime_db = $stats_db[9];
+
+        $status   = $db->{$path}->{'status'};
 
         if (-f $path or -d $path)
         {
-            @stats_new = lstat($path);
-            $size_new  = $stats_new[7];
-            $mtime_new = $stats_new[9];
+            @stats_file = lstat($path);
+            $size_file  = $stats_file[7];
+            $mtime_file = $stats_file[9];
 
-            if ($status eq 'NEW')
+            if ($status ne 'NEW' and $status ne 'DEL' )
             {
-                $tot_new++;
-            }
-            elsif ($status eq 'DEL')
-            {
-                $tot_del++;
-            }
-            elsif ($size_old == $size_new and $mtime_old == $mtime_new)
-            {
-                $status = "OK";
-                $tot_ok++;
-            }
-            else
-            {
-                $status = "OLD";
-                $tot_old++;
+                if ($size_db == $size_file and $mtime_db == $mtime_file) {
+                    $status = "OK";
+                } else {
+                    $status = "OLD";
+                }
             }
 
-            $size = $size_new;
-            $time = scalar localtime $mtime_new;
+            $size = $size_file;
+            $time = scalar localtime $mtime_file;
         }
         else
         {
             $status = "MIS";
-            $tot_mis++;
 
-            $time = scalar localtime $mtime_old;
-            $size = $size_old;
+            $time = scalar localtime $mtime_db;
+            $size = $size_db;
         }
 
-        printf("%-10s %-25s % 8s     %s\n", $status, $time, $size, $rel_path);
+        push @table, [$status, $time, $size, $rel_path];
+    }
 
-        $tot_size += $size;
-        $tot_all++;
+    @paths = glob ("$abs_base/*");
+
+    foreach $path (@paths)
+    {
+        next if exists $db->{$path};
+
+        $rel_path = File::Spec->abs2rel($path, $abs_base);
+
+        $status     = "?";
+        @stats_file = lstat($path);
+        $size_file  = $stats_file[7];
+        $mtime_file = $stats_file[9];
+
+        $time = scalar localtime $mtime_file;
+        $size = $size_file;
+
+        push @table, [$status, $time, $size, $rel_path];
+    }
+
+    @table = sort { $a->[-1] cmp $b->[-1] } @table;
+
+    printf("%-8s %-25s %12s %6s\n", "Status", "Last modified", "Size", "Path");
+
+    foreach $row (@table) {
+        printf("%-8s %-25s % 12s   %s\n", @{$row});
+
+        $counts{$row->[0]}++;
+        $counts{'SIZE'} += $row->[2];
+        $counts{'TOTAL'}++;
     }
 
     print "\n";
-    printf("Total:      %10d\n", $tot_all);
-    printf("Total OK:   %10d\n", $tot_ok);
-    printf("Total NEW:  %10d\n", $tot_new);
-    printf("Total OLD:  %10d\n", $tot_old);
-    printf("Total DEL:  %10d\n", $tot_del);
-    printf("Total MIS:  %10d\n", $tot_mis);
-    printf("Total size: %10d\n", $tot_size);
+    printf("Total:      %12d\n",  $counts{'TOTAL'} || 0);
+    printf("Total OK:   %12d\n",  $counts{'OK'}    || 0);
+    printf("Total NEW:  %12d\n",  $counts{'NEW'}   || 0);
+    printf("Total OLD:  %12d\n",  $counts{'OLD'}   || 0);
+    printf("Total DEL:  %12d\n",  $counts{'DEL'}   || 0);
+    printf("Total MIS:  %12d\n",  $counts{'MIS'}   || 0);
+    printf("Total ?:    %12d\n",  $counts{'?'}     || 0);
+    printf("Total size: %12d\n",  $counts{'SIZE'}  || 0);
 }
 
 # Given a list of relative paths to files and directories expand the
