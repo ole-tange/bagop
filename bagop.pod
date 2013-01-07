@@ -58,7 +58,7 @@ directory will add all files and furture files under that directory.
 =item B<delete>
 
 Delete from the backup. Mark I<paths> for not being backed up any
-more and delete it from the backup.
+more (and NOT impelemented: delete it from the backup).
 
 
 =item B<commit>

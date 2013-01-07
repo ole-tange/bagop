@@ -129,7 +129,7 @@ sub bagop_delete
         $abs_path = File::Spec->rel2abs($path);
 
         if (exists $db->{$abs_path}) {
-            delete $db->{$abs_path};
+            $db->{$abs_path}->{'status'} = "DEL";
             print STDERR qq(Deleted $abs_path\n) unless $opt::quiet;
         }
         else {
@@ -143,10 +143,50 @@ sub bagop_delete
 # Backup files.
 sub bagop_commit
 {
-    my ($fh, $file, $db, $tmp_fh, $tmp_file, @files, @cmd);
+    my ($db);
 
     $db = db_retrieve();
+
+    bagop_commit_delete($db);
+    bagop_commit_update($db);
+
+    db_store($db);
+    db_commit();
+}
+
+# Deleted files from database and destination.
+sub bagop_commit_delete
+{
+    my ($db,   # Database.
+    ) = @_;
+
+    my (@files, $file, @cmd);
+
+    @files = sort grep { $db->{$_}->{'status'} eq 'DEL' } keys %{$db};
+
+    foreach $file (@files)
+    {
+        unless ($opt::dryrun)
+        {
+            # FIXME
+            # @cmd = "ssh username@domain.com 'rm /some/where/some_file.war'"
+            # system(@cmd) == 0 or ::error(qq(Command -> @cmd failed: $?));
+
+            delete $db->{$file};
+        }
+    }
+}
+
+# Update the backup in database and destination.
+sub bagop_commit_update
+{
+    my ($db,   # Database.
+    ) = @_;
+
+    my ($tmp_fh, $tmp_file, @files, $file, @cmd);
+
     ($tmp_fh, $tmp_file) = File::Temp::tempfile(UNLINK => 1);
+
     @files = sort keys %{$db};
 
     map { print $tmp_fh "$_\n" if (-f $_ or -d $_) } @files;
@@ -169,9 +209,6 @@ sub bagop_commit
             $db->{$file}->{'status'} = 'OK';
         }
     }
-
-    db_store($db);
-    db_commit();
 }
 
 # Collect and print backup stats.
@@ -182,13 +219,14 @@ sub bagop_status
 
     my ($db, @paths, $path, $rel_path, @stats_old, @stats_new, $size_old,
         $size_new, $mtime_old, $mtime_new, $status, $time, $tot_all, $tot_size,
-        $tot_new, $tot_ok, $tot_old, $tot_mis, $size, $abs_base);
+        $tot_new, $tot_ok, $tot_old, $tot_del, $tot_mis, $size, $abs_base);
 
     $tot_all  = 0;
     $tot_size = 0;
     $tot_new  = 0;
     $tot_ok   = 0;
     $tot_old  = 0;
+    $tot_del  = 0;
     $tot_mis  = 0;
 
     $abs_base = Cwd::realpath($rel_base) if $rel_base;
@@ -220,6 +258,10 @@ sub bagop_status
             {
                 $tot_new++;
             }
+            elsif ($status eq 'DEL')
+            {
+                $tot_del++;
+            }
             elsif ($size_old == $size_new and $mtime_old == $mtime_new)
             {
                 $status = "OK";
@@ -250,12 +292,13 @@ sub bagop_status
     }
 
     print "\n";
-    printf("Total files:     %10d\n", $tot_all);
-    printf("Total OK files:  %10d\n", $tot_ok);
-    printf("Total NEW files: %10d\n", $tot_new);
-    printf("Total OLD files: %10d\n", $tot_old);
-    printf("Total MIS files: %10d\n", $tot_mis);
-    printf("Total size:      %10d\n", $tot_size);
+    printf("Total:      %10d\n", $tot_all);
+    printf("Total OK:   %10d\n", $tot_ok);
+    printf("Total NEW:  %10d\n", $tot_new);
+    printf("Total OLD:  %10d\n", $tot_old);
+    printf("Total DEL:  %10d\n", $tot_del);
+    printf("Total MIS:  %10d\n", $tot_mis);
+    printf("Total size: %10d\n", $tot_size);
 }
 
 # Given a list of relative paths to files and directories expand the
@@ -266,10 +309,13 @@ sub paths_expand
     ) = @_;
 
     my @files;
-    
-    File::Find::find({ wanted => sub { push @files, $_ }, no_chdir => 1 }, @{$paths});
 
-    @{$paths} = @files;
+    if (@{$paths})
+    {
+        File::Find::find({ wanted => sub { push @files, $_ }, no_chdir => 1 }, @{$paths});
+
+        @{$paths} = @files;
+    }
 
     return $paths;
 }
@@ -283,17 +329,19 @@ sub db_store
     Storable::lock_store($db, db_filename());
 }
 
-# Commit the back using rsync.
+# Commit the backup using rsync.
 sub db_commit
 {
-    my ($basefile, $cachedir, $dbfile);
+    my ($basefile, $cachedir, $dbfile, @cmd);
 
     $basefile = $opt::dest;
     $basefile =~ s/[^a-z0-9]/_/gi;
     $cachedir = $ENV{'HOME'}."/.bagop/cache";
     $dbfile   = "$cachedir/$basefile";
 
-    system("rsync $dbfile $opt::dest/.$basefile 2>/dev/null;");
+    @cmd = "rsync $dbfile $opt::dest/.$basefile 2>/dev/null;";
+
+    system(@cmd) == 0 or ::error(qq(Command -> @cmd failed: $?));
 }
 
 # Get database file name.
