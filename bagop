@@ -93,18 +93,32 @@ sub bagop_add
 
     $db = db_retrieve();
 
-    foreach $path (@{$paths}) {
+    foreach $path (@{$paths})
+    {
         $abs_path = File::Spec->rel2abs($path);
-        if (exists $db->{$abs_path}) {
+
+        if (exists $db->{$abs_path})
+        {
             ::warning(qq(File already in backup -> $abs_path\n));
-        } elsif (-l $abs_path) {
+        }
+        elsif (-l $abs_path)
+        {
             ::warning(qq(Skipping symbolic link -> $abs_path\n));
-        } elsif (! -r $abs_path) {
-            ::warning(qq(Permission denied -> $abs_path\n));
-        } elsif (-f $abs_path or -d $abs_path) {
-            $db->{$abs_path} = {lstat => [lstat($abs_path)], status => 'NEW'};
-            print STDERR qq(Added $abs_path\n) unless $opt::quiet;
-        } else {
+        }
+        elsif (-f $abs_path or -d $abs_path)
+        {
+            if (! -r $abs_path)
+            {
+                ::warning(qq(Permission denied -> $abs_path\n));
+            }
+            else
+            {
+                $db->{$abs_path} = {lstat => [lstat($abs_path)], status => 'NEW'};
+                print STDERR qq(Added $abs_path\n) unless $opt::quiet;
+            }
+        }
+        else
+        {
             ::error(qq{No such file or directory -> "$abs_path"\n});
         }
     }
