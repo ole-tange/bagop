@@ -6,6 +6,7 @@ use warnings;
 use Data::Dumper;
 use File::Basename;
 use File::Temp;
+use Cwd;
 use Getopt::Long qw(:config bundling); 
 use Storable;
 use Sys::Hostname;
@@ -166,12 +167,12 @@ sub bagop_commit
 # Collect and print backup stats.
 sub bagop_status
 {
-    my ($base   # base path to show status from
+    my ($rel_base   # relative base path to show status from
        ) = @_;
 
     my ($db, @paths, $path, $rel_path, @stats_old, @stats_new, $size_old,
         $size_new, $mtime_old, $mtime_new, $status, $time, $tot_all, $tot_size,
-        $tot_new, $tot_ok, $tot_old, $tot_mis, $size);
+        $tot_new, $tot_ok, $tot_old, $tot_mis, $size, $abs_base);
 
     $tot_all  = 0;
     $tot_size = 0;
@@ -179,6 +180,8 @@ sub bagop_status
     $tot_ok   = 0;
     $tot_old  = 0;
     $tot_mis  = 0;
+
+    $abs_base = Cwd::realpath($rel_base) if $rel_base;
 
     $db = db_retrieve();
 
@@ -188,7 +191,7 @@ sub bagop_status
 
     foreach $path (@paths)
     {
-        $rel_path = File::Spec->abs2rel($path, $base);
+        $rel_path = File::Spec->abs2rel($path, $abs_base);
 
         next if $rel_path =~ /^\.\./; # Skipping any parent paths
 
