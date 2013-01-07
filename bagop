@@ -5,6 +5,7 @@ use warnings;
 
 use Data::Dumper;
 use File::Basename;
+use File::Find;
 use File::Temp;
 use Cwd;
 use Getopt::Long qw(:config bundling); 
@@ -60,7 +61,7 @@ sub set_dest
 
     unless (-d $opt::dest)
     {
-        ::error(qq(ERROR: --dest $opt::dest: No such file or directory\n));
+        ::error(qq(--dest $opt::dest: No such file or directory\n));
     }
 }
 
@@ -88,6 +89,8 @@ sub bagop_add
 
     my ($db, $path, $abs_path);
 
+    paths_expand($paths);
+
     $db = db_retrieve();
 
     foreach $path (@{$paths}) {
@@ -105,6 +108,7 @@ sub bagop_add
             ::error(qq{No such file or directory -> "$abs_path"\n});
         }
     }
+
     db_store($db);
 }
 
@@ -115,6 +119,8 @@ sub bagop_delete
     ) = @_;
 
     my ($db, $path, $abs_path);
+
+    paths_expand($paths);
 
     $db = db_retrieve();
 
@@ -127,7 +133,7 @@ sub bagop_delete
             print STDERR qq(Deleted $abs_path\n) unless $opt::quiet;
         }
         else {
-            ::warning(qq(Warning! No such file or directory -> "$abs_path"\n));
+            ::warning(qq(No such file or directory -> "$abs_path"\n));
         }
     }
 
@@ -137,7 +143,7 @@ sub bagop_delete
 # Backup files.
 sub bagop_commit
 {
-    my ($fh, $file, $db, $tmp_fh, $tmp_file, @files, $verbose, $dryrun, @cmd);
+    my ($fh, $file, $db, $tmp_fh, $tmp_file, @files, @cmd);
 
     $db = db_retrieve();
     ($tmp_fh, $tmp_file) = File::Temp::tempfile(UNLINK => 1);
@@ -145,9 +151,13 @@ sub bagop_commit
 
     map { print $tmp_fh "$_\n" if (-f $_ or -d $_) } @files;
 
-    $verbose = $opt::quiet ? "" : "--verbose";
-    $dryrun  = $opt::dryrun ? "--dry-run" : "";
-    @cmd     = "rsync $verbose $dryrun --recursive --relative --update --files-from=$tmp_file / $opt::dest";
+    push @cmd, "rsync";
+    push @cmd, "--verbose" unless $opt::quiet;
+    push @cmd, "--dry-run" if     $opt::dryrun;
+    push @cmd, "--update";
+    push @cmd, "--files-from=$tmp_file";
+    push @cmd, "/";          # source
+    push @cmd, $opt::dest;   # destination
 
     system(@cmd) == 0 or ::error(qq(Command -> @cmd failed: $?));
 
@@ -246,6 +256,22 @@ sub bagop_status
     printf("Total OLD files: %10d\n", $tot_old);
     printf("Total MIS files: %10d\n", $tot_mis);
     printf("Total size:      %10d\n", $tot_size);
+}
+
+# Given a list of relative paths to files and directories expand the
+# directories recursively.
+sub paths_expand
+{
+    my ($paths,   # List of paths to expand.
+    ) = @_;
+
+    my @files;
+    
+    File::Find::find({ wanted => sub { push @files, $_ }, no_chdir => 1 }, @{$paths});
+
+    @{$paths} = @files;
+
+    return $paths;
 }
 
 # Store the backup db to file.
