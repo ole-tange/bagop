@@ -113,7 +113,7 @@ sub bagop_add
             }
             else
             {
-                $db->{$abs_path} = {lstat => [lstat($abs_path)], status => 'NEW'};
+                $db->{$abs_path} = {'lstat' => [lstat($abs_path)], status => 'NEW'};
                 print STDERR qq(Added $abs_path\n) unless $opt::quiet;
             }
         }
@@ -219,8 +219,11 @@ sub bagop_commit_update
     {
         foreach $file (@files)
         {
-            $db->{$file}->{'lstat'}  = [lstat($file)];
-            $db->{$file}->{'status'} = 'OK';
+            if (-f $file or -d $file)
+            {
+                $db->{$file}->{'lstat'}  = [lstat($file)];
+                $db->{$file}->{'status'} = 'OK';
+            }
         }
     }
 }
