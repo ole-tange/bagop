@@ -236,7 +236,7 @@ sub bagop_status
 
     my ($db, @paths, $path, $rel_path, @stats_db, @stats_file, $size_db,
         $size_file, $mtime_db, $mtime_file, $status, $time, $size, $abs_base,
-        @table, $row);
+        @table, $row, %stats);
 
     $abs_base = $rel_base ? Cwd::realpath($rel_base) : Cwd::getcwd;
     $db       = db_retrieve();
@@ -304,11 +304,24 @@ sub bagop_status
 
     @table = sort { $a->[-1] cmp $b->[-1] } @table;
 
+    %stats = (
+        '?'   => 0,
+        'OK'  => 0,
+        'NEW' => 0,
+        'OLD' => 0,
+        'MIS' => 0
+    );
+
     printf("%-8s %-25s %12s %6s\n", "Status", "Last modified", "Size", "Path");
 
-    foreach $row (@table) {
+    foreach $row (@table)
+    {
         printf("%-8s %-25s % 12s   %s\n", @{$row});
+
+        $stats{$row->[0]}++;
     }
+
+    printf("Status:\t?: %d\tOK: %d\tNEW: %d\tOLD: %d\tMIS: %d\n", $stats{'?'}, $stats{'OK'}, $stats{'NEW'}, $stats{'OLD'}, $stats{'MIS'});
 }
 
 # Given a list of relative paths to files and directories expand the
