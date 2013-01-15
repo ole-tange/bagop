@@ -246,7 +246,7 @@ sub bagop_status
     {
         $rel_path = File::Spec->abs2rel($path, $abs_base);
 
-        next if $rel_path =~ /^\.\.\//;
+        next if $rel_path =~ /^\.\.\/|^\.{1,2}$/;
 
         @stats_db = @{$db->{$path}->{'lstat'}};
         $size_db  = $stats_db[7];
