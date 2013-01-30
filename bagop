@@ -7,6 +7,7 @@ use Data::Dumper;
 use File::Basename;
 use File::Find;
 use File::Temp;
+use File::Copy;
 use Cwd;
 use Getopt::Long qw(:config bundling); 
 use Storable;
@@ -30,7 +31,7 @@ Getopt::Long::GetOptions(
 
 set_dest();
 
-$abr_hash = Text::Abbrev::abbrev qw(add delete commit status);
+$abr_hash = Text::Abbrev::abbrev qw(add delete move commit status);
 $cmd      = shift @ARGV       or ::exit_usage();
 $cmd      = $abr_hash->{$cmd} or ::exit_usage();
 
@@ -38,6 +39,8 @@ if ($cmd eq "add") {
     bagop_add(\@ARGV);
 } elsif ($cmd eq "delete") {
     bagop_delete(\@ARGV);
+} elsif ($cmd eq "move") {
+    bagop_move(\@ARGV);
 } elsif ($cmd eq "commit") {
     bagop_commit()
 } elsif ($cmd eq "status") {
@@ -69,7 +72,7 @@ sub set_dest
 sub exit_usage
 {
     print <<"USAGE";
-$prg_name [options] add <files> | delete <files> | commit | status [dir]
+$prg_name [options] add <files> | delete <files> | move <src> <dst> | commit | status [dir]
    options:   [--dest [[user@]host:][dir]]
               [--dryrun|-d]
               [--quiet|-q]
@@ -126,10 +129,11 @@ sub bagop_add
     db_store($db);
 }
 
-# Delete a file from backup.
+# Delete files from backup.
 sub bagop_delete
 {
-    my ($paths,   # List of paths to delete.
+    my ($paths,    # List of paths to delete.
+        $remove,   # Flag indicating files were moved.
     ) = @_;
 
     my ($db, $path, $abs_path);
@@ -142,16 +146,58 @@ sub bagop_delete
     {
         $abs_path = File::Spec->rel2abs($path);
 
-        if (exists $db->{$abs_path}) {
-            $db->{$abs_path}->{'status'} = "DEL";
+        if (exists $db->{$abs_path})
+        {
+            if ($db->{$abs_path}->{'status'} eq "NEW") {
+                delete $db->{$abs_path};
+            } elsif ($remove) {
+                delete $db->{$abs_path};
+            } else {
+                $db->{$abs_path}->{'status'} = "DEL";
+            }
+
             print STDERR qq(Deleted $abs_path\n) unless $opt::quiet;
         }
-        else {
+        else
+        {
             ::warning(qq(No such file or directory -> "$abs_path"\n));
         }
     }
 
     db_store($db);
+}
+
+# Move files in backup
+sub bagop_move
+{
+    my ($paths,   # List of paths, where the first are src and the last dst.
+    ) = @_;
+
+    my ($db, $paths_src, $path_src, $abs_dst, $abs_src, $path);
+
+    $db = db_retrieve();
+
+    $paths_src = $paths;
+    $abs_dst   = File::Spec->rel2abs(pop @{$paths_src});
+
+    if (scalar @{$paths_src} > 1 and ! -d $abs_dst) {
+        ::error(qq(Moving mutiple paths to non-directory destination\n));
+    }
+
+    foreach $path_src (@{$paths_src})
+    {
+        $abs_src = File::Spec->rel2abs($path_src);
+
+        if (exists $db->{$abs_src} and (-f $abs_src or -d $abs_src))
+        {
+            bagop_delete([$abs_src], 1);  # 1 to indicate delete from database.
+
+            # Using system mv because File::Copy::move is slow for big files.
+            system(qq(mv $abs_src $abs_dst)) == 0 or die qq(Move failed: $abs_src -> $abs_dst: $@\n);
+
+            bagop_add([$abs_dst]);
+        }
+    }
 }
 
 # Backup files.

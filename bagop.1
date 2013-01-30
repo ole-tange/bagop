@@ -124,7 +124,7 @@
 .\" ========================================================================
 .\"
 .IX Title "BAGOP 1"
-.TH BAGOP 1 "2013-01-06" "20121114" "bagop"
+.TH BAGOP 1 "2013-01-30" "20121114" "bagop"
 .\" For nroff, turn off justification.  Always turn off hyphenation; it makes
 .\" way too many mistakes in technical documents.
 .if n .ad l
@@ -133,7 +133,7 @@
 bagop \- mark files and directories for backup and back them up
 .SH "SYNOPSIS"
 .IX Header "SYNOPSIS"
-\&\fBbagop\fR [\-\-dest \fI[[user@]host:][dir]\fR ] [\-\-dryrun|\-d] [\-\-quiet|\-q] (add \fIpaths\fR|del \fIpaths\fR|commit|stat)
+\&\fBbagop\fR [\-\-dest \fI[[user@]host:][dir]\fR ] [\-\-dryrun|\-d] [\-\-quiet|\-q] (add \fIpaths\fR|del \fIpaths\fR|move \fIsrc\fR \fIdst\fR|commit|stat)
 .SH "DESCRIPTION"
 .IX Header "DESCRIPTION"
 \&\fBbagop\fR is a tool for flagging specific files and directories that should be
@@ -176,7 +176,13 @@ directory will add all files and furture files under that directory.
 .IX Item "delete"
 .PD
 Delete from the backup. Mark \fIpaths\fR for not being backed up any
-more and delete it from the backup.
+more (and \s-1NOT\s0 impelemented: delete it from the backup).
+.IP "\fBmove\fR \fIsrc\fR \fIdst\fR" 9
+.IX Item "move src dst"
+The command is equivalent to the `mv` Unix command and indeed files and
+directories can be renamed or moved physically on the file system while keeping
+track of them in the database. If multiple \fIsrc\fR paths are given, then the
+\&\fIdst\fR path must be a directory.
 .IP "\fBcommit\fR" 9
 .IX Item "commit"
 Do the actual backup. This will copy the files and directories to the backup.
@@ -204,6 +210,14 @@ Mark a directory results/ for backup:
 Copy the marked files and directories to the backup dir
 .PP
 \&\fBbagop\fR commit
+.PP
+Rename a file already added to the backup
+.PP
+\&\fBbagop\fR move foo bar
+.PP
+Move files and directories already added to the backup to new_dir/
+.PP
+\&\fBbagop\fR move foo bar dir/ new_dir/
 .PP
 Show the backup status:
 .PP

@@ -7,7 +7,7 @@ bagop - mark files and directories for backup and back them up
 
 =head1 SYNOPSIS
 
-B<bagop> [--dest I<[[user@]host:][dir]> ] [--dryrun|-d] [--quiet|-q] (add I<paths>|del I<paths>|commit|stat) 
+B<bagop> [--dest I<[[user@]host:][dir]> ] [--dryrun|-d] [--quiet|-q] (add I<paths>|del I<paths>|move I<src> I<dst>|commit|stat) 
 
 
 =head1 DESCRIPTION
@@ -60,6 +60,12 @@ directory will add all files and furture files under that directory.
 Delete from the backup. Mark I<paths> for not being backed up any
 more (and NOT impelemented: delete it from the backup).
 
+=item B<move> I<src> I<dst>
+
+The command is equivalent to the `mv` Unix command and indeed files and
+directories can be renamed or moved physically on the file system while keeping
+track of them in the database. If multiple I<src> paths are given, then the
+I<dst> path must be a directory.
 
 =item B<commit>
 
@@ -91,6 +97,14 @@ B<bagop> add results/
 Copy the marked files and directories to the backup dir
 
 B<bagop> commit
+
+Rename a file already added to the backup
+
+B<bagop> move foo bar
+
+Move files and directories already added to the backup to new_dir/
+
+B<bagop> move foo bar dir/ new_dir/
 
 Show the backup status:
 

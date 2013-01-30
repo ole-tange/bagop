@@ -3,7 +3,7 @@ NAME
 
 SYNOPSIS
     bagop [--dest *[[user@]host:][dir]* ] [--dryrun|-d] [--quiet|-q] (add
-    *paths*|del *paths*|commit|stat)
+    *paths*|del *paths*|move *src* *dst*|commit|stat)
 
 DESCRIPTION
     bagop is a tool for flagging specific files and directories that should
@@ -37,7 +37,14 @@ OPTIONS
 
     del *paths*
     delete   Delete from the backup. Mark *paths* for not being backed up
-             any more and delete it from the backup.
+             any more (and NOT impelemented: delete it from the backup).
+
+    move *src* *dst*
+             The command is equivalent to the `mv` Unix command and indeed
+             files and directories can be renamed or moved physically on the
+             file system while keeping track of them in the database. If
+             multiple *src* paths are given, then the *dst* path must be a
+             directory.
 
     commit   Do the actual backup. This will copy the files and directories
              to the backup.
@@ -61,6 +68,14 @@ EXAMPLE: Simple use
     Copy the marked files and directories to the backup dir
 
     bagop commit
+
+    Rename a file already added to the backup
+
+    bagop move foo bar
+
+    Move files and directories already added to the backup to new_dir/
+
+    bagop move foo bar dir/ new_dir/
 
     Show the backup status:
 
