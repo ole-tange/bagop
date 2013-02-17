@@ -320,7 +320,7 @@ sub bagop_status
         }
         else
         {
-            $status = "MIS";
+            $status = "MIS" unless $status eq "DEL";
 
             $time = scalar localtime $mtime_db;
             $size = $size_db;
